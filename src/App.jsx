@@ -16,6 +16,81 @@ const STARTER_DECKS = [
 ];
 
 // ═══════════════════════════════════════════════════════════════════════
+// HEROES
+// ═══════════════════════════════════════════════════════════════════════
+const HEROES = [
+  {
+    id:"pyromancer", name:"Pyromancer", title:"The Flame Warden",
+    color:"#e05520", icon:"🔥", manaColor:"R",
+    passive:"Whenever you play an Instant or Sorcery, deal 1 damage to opponent.",
+    active:"Burn: Deal 3 damage to opponent. (Once per turn)",
+    activeCost:"Tap 1 mana",
+    applyPassive:(gs,card)=>{
+      if(isInstant(card)||isSorcery(card)){
+        return {...gs, oppLife: gs.oppLife - 1, heroLog:`🔥 Pyromancer passive: 1 damage!`};
+      }
+      return gs;
+    },
+    applyActive:(gs)=>({...gs, oppLife: gs.oppLife - 3, heroLog:`🔥 Pyromancer BURN: 3 damage!`}),
+  },
+  {
+    id:"warden", name:"Warden", title:"The Life Warden",
+    color:"#3a8a3a", icon:"🌿", manaColor:"G",
+    passive:"Whenever you play a creature, gain 1 life.",
+    active:"Regrowth: Gain 5 life. (Once per turn)",
+    activeCost:"Tap 2 mana",
+    applyPassive:(gs,card)=>{
+      if(isCreature(card)){
+        return {...gs, life: gs.life + 1, heroLog:`🌿 Warden passive: +1 life!`};
+      }
+      return gs;
+    },
+    applyActive:(gs)=>({...gs, life: gs.life + 5, heroLog:`🌿 Warden REGROWTH: +5 life!`}),
+  },
+  {
+    id:"arcanist", name:"Arcanist", title:"The Mind Sculptor",
+    color:"#3a8fd8", icon:"💧", manaColor:"U",
+    passive:"Whenever you draw a card, Scry 1 (top of library stays or goes to bottom).",
+    active:"Insight: Draw 2 cards. (Once per turn)",
+    activeCost:"Tap 2 mana",
+    applyPassive:(gs)=>({...gs, heroLog:`💧 Arcanist passive: Scry 1.`}),
+    applyActive:(gs)=>{
+      if(gs.library.length < 2) return {...gs, heroLog:`💧 Arcanist INSIGHT: Library too small!`};
+      const [a,b,...rest]=gs.library;
+      return {...gs, library:rest, hand:[...gs.hand,a,b], heroLog:`💧 Arcanist INSIGHT: Drew 2 cards!`};
+    },
+  },
+  {
+    id:"necromancer", name:"Necromancer", title:"The Grave Caller",
+    color:"#8a5aaa", icon:"💀", manaColor:"B",
+    passive:"Whenever a creature dies, put a +1/+1 counter on one of your creatures.",
+    active:"Reanimate: Return top creature from graveyard to battlefield. (Once per turn)",
+    activeCost:"Tap 2 mana",
+    applyPassive:(gs)=>{
+      const creatures=gs.battlefield.filter(i=>isCreature(i.card));
+      if(!creatures.length) return {...gs, heroLog:`💀 Necromancer passive: No creature to buff.`};
+      const target=creatures[creatures.length-1];
+      return {...gs, battlefield:gs.battlefield.map(i=>i.uid===target.uid?{...i,counters:{...i.counters,"+1/+1":(i.counters["+1/+1"]||0)+1}}:i), heroLog:`💀 Necromancer passive: +1/+1 on ${target.card.name}!`};
+    },
+    applyActive:(gs)=>{
+      const deadCreatures=gs.graveyard.filter(i=>isCreature(i.card));
+      if(!deadCreatures.length) return {...gs, heroLog:`💀 Necromancer: No creatures in graveyard!`};
+      const top=deadCreatures[deadCreatures.length-1];
+      return {...gs, graveyard:gs.graveyard.filter(i=>i.uid!==top.uid), battlefield:[...gs.battlefield,{...top,tapped:false,summoningSick:false}], heroLog:`💀 Necromancer REANIMATE: ${top.card.name} rises!`};
+    },
+  },
+  {
+    id:"champion", name:"Champion", title:"The Battlefield Legend",
+    color:"#c8a800", icon:"⚔️", manaColor:"W",
+    passive:"Your attacking creatures get +1/+0 this turn.",
+    active:"Rally: Untap all your creatures. (Once per turn)",
+    activeCost:"Tap 1 mana",
+    applyPassive:(gs)=>({...gs, heroLog:`⚔️ Champion passive: Attackers +1/+0.`}),
+    applyActive:(gs)=>({...gs, battlefield:gs.battlefield.map(i=>({...i,tapped:false,summoningSick:false})), heroLog:`⚔️ Champion RALLY: All creatures untapped!`}),
+  },
+];
+
+// ═══════════════════════════════════════════════════════════════════════
 // UTILS
 // ═══════════════════════════════════════════════════════════════════════
 const uid       = () => Math.random().toString(36).slice(2,10);
@@ -811,9 +886,126 @@ function Log({entries}){
 }
 
 // ═══════════════════════════════════════════════════════════════════════
+// HERO SELECT SCREEN
+// ═══════════════════════════════════════════════════════════════════════
+function HeroSelect({playerLabel,onSelect,onBack}){
+  const [hovered,setHovered]=useState(null);
+  return(
+    <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"radial-gradient(ellipse at 50% 0%,rgba(40,10,80,.9),transparent 60%),#04040c",padding:24,fontFamily:"'Cinzel',serif"}}>
+      <div style={{fontSize:11,color:"#555",letterSpacing:4,textTransform:"uppercase",marginBottom:8}}>Choose Your Hero</div>
+      <h2 style={{fontSize:28,fontWeight:900,color:"#c8a800",marginBottom:4,letterSpacing:3}}>{playerLabel}</h2>
+      <p style={{fontSize:11,color:"#334",fontFamily:"'Crimson Pro',serif",fontStyle:"italic",marginBottom:36}}>Your hero grants a passive ability and a once-per-turn active power.</p>
+      <div style={{display:"flex",gap:14,flexWrap:"wrap",justifyContent:"center",maxWidth:900}}>
+        {HEROES.map(h=>(
+          <div key={h.id}
+            onMouseEnter={()=>setHovered(h.id)}
+            onMouseLeave={()=>setHovered(null)}
+            onClick={()=>onSelect(h)}
+            style={{
+              width:160,padding:"20px 16px",borderRadius:12,cursor:"pointer",
+              background:hovered===h.id?`linear-gradient(160deg,${h.color}22,${h.color}0a)`:"linear-gradient(160deg,#0d0d1a,#06060e)",
+              border:`2px solid ${hovered===h.id?h.color:h.color+"44"}`,
+              boxShadow:hovered===h.id?`0 0 24px ${h.color}44`:"none",
+              transition:"all .2s",transform:hovered===h.id?"translateY(-6px)":"none",
+              display:"flex",flexDirection:"column",alignItems:"center",gap:10,
+            }}>
+            <div style={{fontSize:44}}>{h.icon}</div>
+            <div style={{fontSize:14,fontWeight:700,color:h.color,letterSpacing:2,textAlign:"center"}}>{h.name}</div>
+            <div style={{fontSize:9,color:"#555",letterSpacing:1,textAlign:"center",fontFamily:"'Crimson Pro',serif",fontStyle:"italic"}}>{h.title}</div>
+            <div style={{width:"100%",height:1,background:`${h.color}33`}}/>
+            <div style={{fontSize:9,color:"#888",fontFamily:"'Crimson Pro',serif",lineHeight:1.5,textAlign:"center"}}>
+              <span style={{color:h.color,fontWeight:700}}>Passive: </span>{h.passive}
+            </div>
+            <div style={{fontSize:9,color:"#888",fontFamily:"'Crimson Pro',serif",lineHeight:1.5,textAlign:"center"}}>
+              <span style={{color:"#c8a800",fontWeight:700}}>Active: </span>{h.active}
+            </div>
+          </div>
+        ))}
+      </div>
+      <button className="btn" onClick={onBack} style={{marginTop:32,padding:"8px 20px",borderRadius:6,background:"none",border:"1px solid #222",color:"#444",fontSize:11,cursor:"pointer"}}>← Back</button>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// HERO BADGE (in-game)
+// ═══════════════════════════════════════════════════════════════════════
+function HeroBadge({hero,used,onActivate,label}){
+  if(!hero) return null;
+  return(
+    <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+      <div style={{fontSize:8,color:"#444",letterSpacing:2,textTransform:"uppercase"}}>{label}</div>
+      <div style={{display:"flex",alignItems:"center",gap:5,padding:"3px 8px",borderRadius:6,background:`${hero.color}11`,border:`1px solid ${hero.color}33`}}>
+        <span style={{fontSize:16}}>{hero.icon}</span>
+        <div style={{display:"flex",flexDirection:"column"}}>
+          <span style={{fontSize:9,color:hero.color,fontFamily:"'Cinzel',serif",fontWeight:700}}>{hero.name}</span>
+          <span style={{fontSize:7,color:"#444",fontFamily:"'Crimson Pro',serif"}}>{hero.passive.slice(0,30)}…</span>
+        </div>
+        {onActivate&&(
+          <button className="btn" onClick={onActivate} disabled={used} style={{
+            padding:"3px 8px",borderRadius:4,fontSize:8,cursor:used?"not-allowed":"pointer",
+            background:used?"#1a1a1a":`${hero.color}22`,
+            border:`1px solid ${used?"#222":hero.color}`,
+            color:used?"#333":hero.color,fontFamily:"'Cinzel',serif",
+            whiteSpace:"nowrap",
+          }}>{used?"Used":"⚡ Active"}</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// MODE SELECT (1P vs AI  |  2P Local Hot-Seat)
+// ═══════════════════════════════════════════════════════════════════════
+function ModeSelect({deck,onMode,onBack}){
+  return(
+    <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"#04040c",padding:24,fontFamily:"'Cinzel',serif"}}>
+      <div style={{fontSize:76,marginBottom:12}}>🃏</div>
+      <h2 style={{fontSize:32,fontWeight:900,color:"#c8a800",letterSpacing:3,marginBottom:8}}>Choose Mode</h2>
+      <p style={{fontSize:11,color:"#334",fontFamily:"'Crimson Pro',serif",marginBottom:40}}>How do you want to play?</p>
+      <div style={{display:"flex",gap:20,flexWrap:"wrap",justifyContent:"center"}}>
+        <div onClick={()=>onMode("1p")} style={{width:220,padding:28,borderRadius:14,cursor:"pointer",background:"linear-gradient(160deg,#1a1a3a,#0d0d20)",border:"2px solid #3a3a7a",textAlign:"center",transition:"all .2s"}}
+          onMouseOver={e=>{e.currentTarget.style.borderColor="#7a7acc";e.currentTarget.style.transform="translateY(-4px)";}}
+          onMouseOut={e=>{e.currentTarget.style.borderColor="#3a3a7a";e.currentTarget.style.transform="none";}}>
+          <div style={{fontSize:48,marginBottom:10}}>🤖</div>
+          <div style={{fontSize:16,fontWeight:700,color:"#8ab4ff",marginBottom:6}}>vs AI</div>
+          <div style={{fontSize:10,color:"#445",fontFamily:"'Crimson Pro',serif",lineHeight:1.5}}>Play against the computer. AI plays lands, casts spells, and attacks automatically.</div>
+        </div>
+        <div onClick={()=>onMode("2p")} style={{width:220,padding:28,borderRadius:14,cursor:"pointer",background:"linear-gradient(160deg,#1a2a1a,#0d180d)",border:"2px solid #3a7a3a",textAlign:"center",transition:"all .2s"}}
+          onMouseOver={e=>{e.currentTarget.style.borderColor="#7acc7a";e.currentTarget.style.transform="translateY(-4px)";}}
+          onMouseOut={e=>{e.currentTarget.style.borderColor="#3a7a3a";e.currentTarget.style.transform="none";}}>
+          <div style={{fontSize:48,marginBottom:10}}>👥</div>
+          <div style={{fontSize:16,fontWeight:700,color:"#80ff90",marginBottom:6}}>2 Players</div>
+          <div style={{fontSize:10,color:"#334",fontFamily:"'Crimson Pro',serif",lineHeight:1.5}}>Hot-seat local play. Take turns on the same screen. Each player picks a Hero!</div>
+        </div>
+      </div>
+      <button className="btn" onClick={onBack} style={{marginTop:32,padding:"8px 20px",borderRadius:6,background:"none",border:"1px solid #222",color:"#444",fontSize:11,cursor:"pointer"}}>← Back</button>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// PASS SCREEN (2P hot-seat between turns)
+// ═══════════════════════════════════════════════════════════════════════
+function PassScreen({label,hero,onReady}){
+  return(
+    <div style={{position:"fixed",inset:0,background:"#02020a",zIndex:9996,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontFamily:"'Cinzel',serif"}}>
+      <div style={{fontSize:52,marginBottom:16}}>{hero?.icon||"🃏"}</div>
+      <h2 style={{fontSize:36,fontWeight:900,color:hero?.color||"#c8a800",marginBottom:8,letterSpacing:3}}>{label}</h2>
+      <p style={{color:"#444",fontSize:13,fontFamily:"'Crimson Pro',serif",fontStyle:"italic",marginBottom:12}}>Your turn begins now.</p>
+      {hero&&<p style={{color:"#555",fontSize:11,fontFamily:"'Crimson Pro',serif",marginBottom:40}}>Hero: {hero.name} — {hero.passive}</p>}
+      <button className="btn" onClick={onReady} style={{padding:"14px 40px",borderRadius:8,background:`linear-gradient(135deg,${hero?.color||"#c8a800"}22,${hero?.color||"#c8a800"}11)`,border:`2px solid ${hero?.color||"#c8a800"}`,color:hero?.color||"#c8a800",fontSize:14,cursor:"pointer",letterSpacing:3}}>
+        I'M READY →
+      </button>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // LANDING PAGE
 // ═══════════════════════════════════════════════════════════════════════
-function Landing({deck,onDeckBuilder,onStartGame,onLoadStarter,starterLoading}){
+function Landing({deck,onDeckBuilder,onSelectMode,onLoadStarter,starterLoading}){
   return(
     <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
       background:"radial-gradient(ellipse at 20% 80%,rgba(40,0,80,.9) 0%,transparent 50%),radial-gradient(ellipse at 80% 20%,rgba(0,30,80,.9) 0%,transparent 50%),radial-gradient(ellipse at 50% 50%,rgba(80,30,0,.4) 0%,transparent 60%),#04040c",
@@ -827,7 +1019,7 @@ function Landing({deck,onDeckBuilder,onStartGame,onLoadStarter,starterLoading}){
     <p style={{fontSize:12,color:"#2a3444",fontFamily:"'Crimson Pro',serif",fontStyle:"italic",marginBottom:40,letterSpacing:1}}>Build decks. Draw cards. Control the battlefield.</p>
     <div style={{display:"flex",gap:12,flexWrap:"wrap",justifyContent:"center",marginBottom:22}}>
       <button className="btn" onClick={onDeckBuilder} style={{padding:"13px 30px",borderRadius:7,background:"linear-gradient(135deg,#1a2a5a,#2a3a7a)",border:"1px solid #3a5acc",color:"#8ab4ff",fontSize:12,cursor:"pointer",fontFamily:"'Cinzel',serif",letterSpacing:2,boxShadow:"0 4px 20px rgba(50,100,200,.22)"}}>🃏 Build Deck</button>
-      {deck.length>=7&&<button className="btn" onClick={onStartGame} style={{padding:"13px 30px",borderRadius:7,background:"linear-gradient(135deg,#1a4a1a,#2a7a2a)",border:"1px solid #3acc5a",color:"#80ff90",fontSize:12,cursor:"pointer",fontFamily:"'Cinzel',serif",letterSpacing:2,boxShadow:"0 4px 20px rgba(50,200,80,.22)"}}>▶ Play ({deck.length})</button>}
+      {deck.length>=7&&<button className="btn" onClick={onSelectMode} style={{padding:"13px 30px",borderRadius:7,background:"linear-gradient(135deg,#1a4a1a,#2a7a2a)",border:"1px solid #3acc5a",color:"#80ff90",fontSize:12,cursor:"pointer",fontFamily:"'Cinzel',serif",letterSpacing:2,boxShadow:"0 4px 20px rgba(50,200,80,.22)"}}>▶ Play ({deck.length})</button>}
     </div>
     <div style={{marginBottom:22}}>
       <div style={{fontSize:8,color:"#222",letterSpacing:3,textTransform:"uppercase",textAlign:"center",marginBottom:10}}>Or load a starter deck</div>
@@ -906,10 +1098,13 @@ function HandCard({inst,onPlay,onDiscard,onHover}){
 // ═══════════════════════════════════════════════════════════════════════
 // GAME VIEW
 // ═══════════════════════════════════════════════════════════════════════
-function GameView({initGs,deck,onMenu}){
+function GameView({initGs,deck,onMenu,hero,oppHero,is2P,p2deck}){
   const [gs,setGs]=useState(initGs);
   const [phase,setPhase]=useState("Main 1");
   const [turn,setTurn]=useState(1);
+  const [activePlayer,setActivePlayer]=useState(1); // 1P or 2P for hot-seat
+  const [showPass,setShowPass]=useState(false);
+  const [heroUsed,setHeroUsed]=useState(false); // active ability used this turn
   const [log,setLog]=useState([{text:"Game started! Drew 7 cards.",type:"system",time:nowStr()}]);
   const [ctx,setCtx]=useState(null);
   const [tt,setTt]=useState({card:null,x:0,y:0});
@@ -920,6 +1115,7 @@ function GameView({initGs,deck,onMenu}){
   const [combatMode,setCombat]=useState(false);
   const [toasts,setToasts]=useState([]);
   const aiProcessing=useRef(false);
+  const currentHero = activePlayer===1 ? hero : oppHero;
 
   const addLog=useCallback((text,type="action")=>setLog(l=>[...l,{text,type,time:nowStr()}]),[]);
 
@@ -963,23 +1159,27 @@ function GameView({initGs,deck,onMenu}){
     });
   },[addLog]);
 
-  // ── PLAY CARD ── (with effect resolution)
+  // ── PLAY CARD ── (with effect resolution + hero passive)
   const playCard=inst=>{
     setGs(g=>{
       const card=inst.card;
-      // Land: stays on battlefield, produces mana
+      let newGs;
       if(isLand(card)){
-        const newGs=resolveEffect(card,g,"player");
-        return{...newGs,hand:newGs.hand.filter(c=>c.uid!==inst.uid),battlefield:[...newGs.battlefield,{...inst,tapped:false,summoningSick:false}]};
+        newGs=resolveEffect(card,g,"player");
+        newGs={...newGs,hand:newGs.hand.filter(c=>c.uid!==inst.uid),battlefield:[...newGs.battlefield,{...inst,tapped:false,summoningSick:false}]};
+      } else if(isInstant(card)||isSorcery(card)){
+        newGs=resolveEffect(card,g,"player");
+        newGs={...newGs,hand:newGs.hand.filter(c=>c.uid!==inst.uid),graveyard:[...newGs.graveyard,inst]};
+      } else {
+        const withOnBf={...g,hand:g.hand.filter(c=>c.uid!==inst.uid),battlefield:[...g.battlefield,{...inst,tapped:false,summoningSick:isCreature(card)}]};
+        newGs=resolveEffect(card,withOnBf,"player");
       }
-      // Instant / Sorcery: resolve effect then go to graveyard
-      if(isInstant(card)||isSorcery(card)){
-        const newGs=resolveEffect(card,g,"player");
-        return{...newGs,hand:newGs.hand.filter(c=>c.uid!==inst.uid),graveyard:[...newGs.graveyard,inst]};
+      // Hero passive
+      if(currentHero?.applyPassive){
+        const after=currentHero.applyPassive(newGs,card);
+        if(after.heroLog){ addLog(after.heroLog,"system"); addToast(after.heroLog,"system"); }
+        return after;
       }
-      // Permanent (creature, enchantment, artifact): enter battlefield, trigger ETB
-      const withOnBf={...g,hand:g.hand.filter(c=>c.uid!==inst.uid),battlefield:[...g.battlefield,{...inst,tapped:false,summoningSick:isCreature(card)}]};
-      const newGs=resolveEffect(card,withOnBf,"player");
       return newGs;
     });
   };
@@ -1094,12 +1294,57 @@ function GameView({initGs,deck,onMenu}){
     },700);
   },[addLog,checkOver]);
 
+  // Hero active ability
+  const heroActivate=()=>{
+    if(!currentHero||heroUsed) return;
+    setGs(g=>{
+      const after=currentHero.applyActive(g);
+      if(after.heroLog){ addLog(after.heroLog,"system"); addToast(after.heroLog,currentHero.id==="pyromancer"?"damage":"heal"); }
+      if(after.oppLife<=0) setTimeout(()=>setGO("you"),100);
+      if(after.life<=0)    setTimeout(()=>setGO("opp"),100);
+      return after;
+    });
+    setHeroUsed(true);
+  };
+
   const nextPhase=()=>{
     if(phase==="Combat"&&!combatMode){setCombat(true);addLog("Declare attackers — click creatures, then Next Phase.","combat");return;}
     if(phase==="Combat"&&combatMode){resolveCombat();setPhase("Main 2");return;}
     if(phase==="End"){
-      doAITurn();
-      setTimeout(()=>{setTurn(t=>t+1);setPhase("Untap");untapAll();drawCard();addLog(`─── Your Turn ${turn+1} ───`,"system");},1500);
+      if(is2P){
+        // Hot-seat: swap sides
+        setGs(g=>{
+          // Swap life pools and battlefield sides
+          return{
+            ...g,
+            life: g.oppLife,
+            oppLife: g.life,
+            hand: g.opp?.hand||[],
+            library: g.opp?.library||[],
+            battlefield: g.opp?.battlefield||[],
+            graveyard: g.opp?.graveyard||[],
+            mana:{W:0,U:0,B:0,R:0,G:0,C:0},
+            opp:{
+              hand: g.hand,
+              library: g.library,
+              battlefield: g.battlefield,
+              graveyard: g.graveyard,
+              life: g.oppLife,
+            }
+          };
+        });
+        const nextPlayer=activePlayer===1?2:1;
+        setActivePlayer(nextPlayer);
+        setHeroUsed(false);
+        setCombat(false);
+        setPhase("Untap");
+        setTurn(t=>t+1);
+        setShowPass(true);
+        addLog(`─── Player ${nextPlayer}'s Turn ───`,"system");
+      } else {
+        doAITurn();
+        setTimeout(()=>{setTurn(t=>t+1);setPhase("Untap");untapAll();drawCard();setHeroUsed(false);addLog(`─── Your Turn ${turn+1} ───`,"system");},1500);
+      }
       return;
     }
     const nxt=PHASES[(PHASES.indexOf(phase)+1)%PHASES.length];
@@ -1129,6 +1374,7 @@ function GameView({initGs,deck,onMenu}){
       <div style={{padding:"6px 12px",display:"flex",alignItems:"center",gap:7,borderBottom:"1px solid #0a0a15",background:"#050510",flexShrink:0,flexWrap:"wrap"}}>
         <button className="btn" onClick={onMenu} style={{background:"none",border:"none",color:"#2a2a3a",cursor:"pointer",fontSize:16}}>←</button>
         <span style={{fontFamily:"'Cinzel',serif",fontSize:13,fontWeight:700,color:"#c8a800"}}>TapAndDraw</span>
+        {is2P&&<span style={{fontSize:10,padding:"2px 8px",borderRadius:4,background:currentHero?`${currentHero.color}22`:"#1a1a2a",border:`1px solid ${currentHero?.color||"#333"}44`,color:currentHero?.color||"#888",fontFamily:"'Cinzel',serif"}}>P{activePlayer} {currentHero?.icon||""}</span>}
         <span style={{fontSize:10,color:"#1e1e2e",fontFamily:"'Cinzel',serif"}}>· T{turn}</span>
         <div style={{display:"flex",gap:2,marginLeft:4}}>
           {PHASES.map((p,i)=>(
@@ -1138,11 +1384,13 @@ function GameView({initGs,deck,onMenu}){
           ))}
         </div>
         <div style={{flex:1}}/>
+        {currentHero&&<HeroBadge hero={currentHero} used={heroUsed} onActivate={heroActivate} label="Hero"/>}
+        {currentHero&&<div style={{width:1,height:28,background:"#0d0d18"}}/>}
         <ManaPool pool={gs.mana} onChange={adjMana}/>
         <div style={{width:1,height:28,background:"#0d0d18"}}/>
-        <LifeCounter life={gs.oppLife} label="Opponent" color="#c05030" onChange={v=>{setGs(g=>({...g,oppLife:v}));if(v<=0)setGO("you");}}/>
+        <LifeCounter life={gs.oppLife} label={is2P?`P${activePlayer===1?2:1}`:"Opponent"} color="#c05030" onChange={v=>{setGs(g=>({...g,oppLife:v}));if(v<=0)setGO("you");}}/>
         <div style={{width:1,height:28,background:"#0d0d18"}}/>
-        <LifeCounter life={gs.life} label="You" color="#3acc3a" onChange={v=>{setGs(g=>({...g,life:v}));if(v<=0)setGO("opp");}}/>
+        <LifeCounter life={gs.life} label={is2P?`P${activePlayer}`:"You"} color="#3acc3a" onChange={v=>{setGs(g=>({...g,life:v}));if(v<=0)setGO("opp");}}/>
         <div style={{width:1,height:28,background:"#0d0d18"}}/>
         <button className="btn" onClick={drawCard} style={{padding:"4px 10px",borderRadius:4,background:"#0b1522",border:"1px solid #16304a",color:"#5a8aaa",fontSize:9,cursor:"pointer",fontFamily:"'Cinzel',serif"}}>Draw <span style={{color:"#2a4455"}}>{gs.library.length}</span></button>
         <button className="btn" onClick={()=>setTokenModal(true)} style={{padding:"4px 9px",borderRadius:4,background:"#131320",border:"1px solid #222238",color:"#7a6acc",fontSize:9,cursor:"pointer",fontFamily:"'Cinzel',serif"}}>Token</button>
@@ -1225,6 +1473,11 @@ function GameView({initGs,deck,onMenu}){
         onReturn={zoneModal==="graveyard"?inst=>{setGs(g=>({...g,graveyard:g.graveyard.filter(c=>c.uid!==inst.uid),hand:[...g.hand,inst]}));addLog(`GY → Hand: ${inst.card.name}`);setZoneModal(null);}:null}/>}
       {tokenModal&&<TokenModal onCreate={createToken} onClose={()=>setTokenModal(false)}/>}
       {gameOver&&<GameOver winner={gameOver} onRestart={restart} onMenu={onMenu}/>}
+      {showPass&&<PassScreen
+        label={is2P?`Player ${activePlayer}'s Turn`:"Your Turn"}
+        hero={currentHero}
+        onReady={()=>{setShowPass(false);untapAll();drawCard();}}
+      />}
     </div>
   );
 }
@@ -1233,17 +1486,23 @@ function GameView({initGs,deck,onMenu}){
 // ROOT APP
 // ═══════════════════════════════════════════════════════════════════════
 export default function TapAndDraw(){
-  const [view,setView]=useState("landing");
-  const [deck,setDeck]=useState([]);
-  const [gs,setGs]=useState(null);
-  const [starterLoading,setSL]=useState(null);
+  const [view,setView]   = useState("landing");  // landing|deckbuilder|mode|hero1|hero2|game
+  const [deck,setDeck]   = useState([]);
+  const [gs,setGs]       = useState(null);
+  const [starterLoading,setSL] = useState(null);
+  const [gameMode,setGameMode] = useState("1p");  // "1p" | "2p"
+  const [hero1,setHero1] = useState(null);
+  const [hero2,setHero2] = useState(null);
 
+  // ── Deck management ──────────────────────────────────────────────────
   const addCard=card=>{
     const n=deck.filter(c=>c.id===card.id).length;
     if(!card.type_line?.includes("Basic")&&n>=4) return;
     setDeck(d=>[...d,card]);
   };
-  const removeCard=id=>{setDeck(d=>{const i=d.map(c=>c.id).lastIndexOf(id);return i===-1?d:[...d.slice(0,i),...d.slice(i+1)];});};
+  const removeCard=id=>{
+    setDeck(d=>{const i=d.map(c=>c.id).lastIndexOf(id);return i===-1?d:[...d.slice(0,i),...d.slice(i+1)];});
+  };
   const clearDeck=()=>setDeck([]);
 
   const loadStarter=async sd=>{
@@ -1261,20 +1520,91 @@ export default function TapAndDraw(){
     setSL(null);
   };
 
-  const startGame=()=>{
+  // ── Game init ─────────────────────────────────────────────────────────
+  const launchGame=(h1,h2,mode)=>{
     if(deck.length<7) return;
     const s=shuffle([...deck]).map(card=>({uid:uid(),card}));
     const o=shuffle([...deck]).map(card=>({uid:uid(),card}));
-    setGs({library:s.slice(7),hand:s.slice(0,7),battlefield:[],graveyard:[],exile:[],life:20,oppLife:20,mana:{W:0,U:0,B:0,R:0,G:0,C:0},opp:{library:o.slice(7),hand:o.slice(0,7),battlefield:[],graveyard:[],life:20}});
+    setGs({
+      library:s.slice(7), hand:s.slice(0,7),
+      battlefield:[], graveyard:[], exile:[],
+      life:20, oppLife:20,
+      mana:{W:0,U:0,B:0,R:0,G:0,C:0},
+      opp:{library:o.slice(7),hand:o.slice(0,7),battlefield:[],graveyard:[],life:20},
+    });
+    setHero1(h1); setHero2(h2); setGameMode(mode);
     setView("game");
+  };
+
+  // ── Mode select handler ───────────────────────────────────────────────
+  const handleMode=mode=>{
+    setGameMode(mode);
+    setView("hero1");  // always pick hero for P1
+  };
+
+  // ── Hero select handlers ──────────────────────────────────────────────
+  const handleHero1=h=>{
+    setHero1(h);
+    if(gameMode==="2p") setView("hero2");
+    else launchGame(h,null,"1p");
+  };
+  const handleHero2=h=>{
+    setHero2(h);
+    launchGame(hero1,h,"2p");
   };
 
   return(
     <>
       <style>{GCSS}</style>
-      {view==="landing"&&<Landing deck={deck} onDeckBuilder={()=>setView("deckbuilder")} onStartGame={startGame} onLoadStarter={loadStarter} starterLoading={starterLoading}/>}
-      {view==="deckbuilder"&&<DeckBuilder deck={deck} onAdd={addCard} onRemove={removeCard} onClear={clearDeck} onPlay={startGame} onBack={()=>setView("landing")}/>}
-      {view==="game"&&gs&&<GameView initGs={gs} deck={deck} onMenu={()=>setView("landing")}/>}
+
+      {view==="landing"&&(
+        <Landing
+          deck={deck}
+          onDeckBuilder={()=>setView("deckbuilder")}
+          onSelectMode={()=>setView("mode")}
+          onLoadStarter={loadStarter}
+          starterLoading={starterLoading}
+        />
+      )}
+
+      {view==="deckbuilder"&&(
+        <DeckBuilder
+          deck={deck} onAdd={addCard} onRemove={removeCard}
+          onClear={clearDeck} onPlay={()=>setView("mode")}
+          onBack={()=>setView("landing")}
+        />
+      )}
+
+      {view==="mode"&&(
+        <ModeSelect deck={deck} onMode={handleMode} onBack={()=>setView("landing")}/>
+      )}
+
+      {view==="hero1"&&(
+        <HeroSelect
+          playerLabel={gameMode==="2p"?"Player 1 — Choose Your Hero":"Choose Your Hero"}
+          onSelect={handleHero1}
+          onBack={()=>setView("mode")}
+        />
+      )}
+
+      {view==="hero2"&&(
+        <HeroSelect
+          playerLabel="Player 2 — Choose Your Hero"
+          onSelect={handleHero2}
+          onBack={()=>setView("hero1")}
+        />
+      )}
+
+      {view==="game"&&gs&&(
+        <GameView
+          initGs={gs}
+          deck={deck}
+          onMenu={()=>setView("landing")}
+          hero={hero1}
+          oppHero={hero2}
+          is2P={gameMode==="2p"}
+        />
+      )}
     </>
   );
 }
