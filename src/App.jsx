@@ -317,7 +317,7 @@ function applyCardEffect(card, gs, source="player") {
   // === CREATURES — ENTER-THE-BATTLEFIELD (ETB) ===
   if(isCreature(card)){
     // ETB draw
-    if(txt.includes("when")||(txt.includes("enters"))&&txt.includes("draw a card")){ drawCards(1); }
+    if(txt.includes("when")||(txt.includes("enters")&&txt.includes("draw a card"))){ drawCards(1); }
     // ETB damage
     const etbDmg=txt.match(/when.{0,40}enters.{0,40}deals? (\d+) damage/);
     if(etbDmg){ dmgOpponent(parseInt(etbDmg[1])); }
@@ -672,7 +672,7 @@ function aiTurn(opp,playerGs,addLog){
   // Play land
   const land=g.opp.hand.find(i=>isLand(i.card));
   if(land){
-    const res=applyCardEffect(land.card,{...g,battlefield:g.opp.battlefield,hand:g.opp.hand,library:g.opp.library,graveyard:g.opp.graveyard,mana:g.opp.mana||{W:0,U:0,B:0,R:0,G:0,C:0}},"opp");
+    applyCardEffect(land.card,{...g,battlefield:g.opp.battlefield,hand:g.opp.hand,library:g.opp.library,graveyard:g.opp.graveyard,mana:g.opp.mana||{W:0,U:0,B:0,R:0,G:0,C:0}},"opp");
     g.opp={...g.opp,hand:g.opp.hand.filter(i=>i.uid!==land.uid),battlefield:[...g.opp.battlefield,{...land,tapped:false,summoningSick:false}]};
     addLog(`Opponent plays ${land.card.name}.`,"opp");
   }
@@ -888,6 +888,22 @@ function DeckBuilder({deck,onAdd,onRemove,onClear,onPlay,onBack}){
 }
 
 // ═══════════════════════════════════════════════════════════════════════
+// HAND CARD (extracted so useState is legal)
+// ═══════════════════════════════════════════════════════════════════════
+function HandCard({inst,onPlay,onDiscard,onHover}){
+  const [hov,setHov]=useState(false);
+  return(
+    <div draggable onDragStart={e=>e.dataTransfer.setData("handUid",inst.uid)}
+      style={{flexShrink:0,transition:"transform .15s",transform:hov?"translateY(-18px)":"none"}}
+      onMouseEnter={e=>{setHov(true);onHover({card:inst.card,x:e.clientX,y:e.clientY});}}
+      onMouseMove={e=>onHover(t=>({...t,x:e.clientX,y:e.clientY}))}
+      onMouseLeave={()=>{setHov(false);onHover({card:null,x:0,y:0});}}>
+      <MTGCard card={inst.card} size="small" draggable onClick={()=>onPlay(inst)} onContextMenu={e=>{e.preventDefault();onDiscard(inst);}}/>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // GAME VIEW
 // ═══════════════════════════════════════════════════════════════════════
 function GameView({initGs,deck,onMenu}){
@@ -919,10 +935,10 @@ function GameView({initGs,deck,onMenu}){
     setTimeout(()=>setDmgEvt(e=>e.filter(ev=>ev.id!==id)),1300);
   };
 
-  const checkOver=(life,oppLife)=>{
+  const checkOver=useCallback((life,oppLife)=>{
     if(oppLife<=0){setGO("you");addLog("Opponent's life hits 0 — Victory!","system");}
     else if(life<=0){setGO("opp");addLog("Your life hits 0 — Defeat!","damage");}
-  };
+  },[addLog]);
 
   // Core: apply effect and sync state
   const resolveEffect=(card,currentGs,src="player")=>{
@@ -1076,7 +1092,7 @@ function GameView({initGs,deck,onMenu}){
       });
       aiProcessing.current=false;
     },700);
-  },[addLog]);
+  },[addLog,checkOver]);
 
   const nextPhase=()=>{
     if(phase==="Combat"&&!combatMode){setCombat(true);addLog("Declare attackers — click creatures, then Next Phase.","combat");return;}
@@ -1191,18 +1207,9 @@ function GameView({initGs,deck,onMenu}){
       {/* HAND */}
       <div style={{height:145,background:"#030309",borderTop:"1px solid #0a0a14",display:"flex",alignItems:"flex-end",padding:"0 10px 9px",gap:5,overflowX:"auto",flexShrink:0,position:"relative"}}>
         <div style={{position:"absolute",top:5,left:10,fontSize:7,color:"#1a1a22",letterSpacing:3,textTransform:"uppercase",fontFamily:"'Cinzel',serif"}}>Hand · {gs.hand.length}</div>
-        {gs.hand.map(inst=>{
-          const [hov,setHov]=useState(false);
-          return(
-            <div key={inst.uid} draggable onDragStart={e=>e.dataTransfer.setData("handUid",inst.uid)}
-              style={{flexShrink:0,transition:"transform .15s",transform:hov?"translateY(-18px)":"none"}}
-              onMouseEnter={e=>{setHov(true);setTt({card:inst.card,x:e.clientX,y:e.clientY});}}
-              onMouseMove={e=>setTt(t=>({...t,x:e.clientX,y:e.clientY}))}
-              onMouseLeave={()=>{setHov(false);setTt({card:null,x:0,y:0});}}>
-              <MTGCard card={inst.card} size="small" draggable onClick={()=>playCard(inst)} onContextMenu={e=>{e.preventDefault();discardCard(inst);}}/>
-            </div>
-          );
-        })}
+        {gs.hand.map(inst=>(
+          <HandCard key={inst.uid} inst={inst} onPlay={playCard} onDiscard={discardCard} onHover={setTt}/>
+        ))}
         {gs.hand.length===0&&<div style={{flex:1,textAlign:"center",color:"#111116",paddingBottom:24,fontFamily:"'Cinzel',serif",fontSize:10,letterSpacing:3,alignSelf:"center"}}>NO CARDS IN HAND</div>}
       </div>
 
