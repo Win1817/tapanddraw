@@ -475,18 +475,31 @@ const GCSS=`
   *{box-sizing:border-box;margin:0;padding:0;}
   body{background:#04040c;color:#ddd;font-family:'Crimson Pro',serif;}
   ::-webkit-scrollbar{width:4px;height:4px;}
-  ::-webkit-scrollbar-track{background:#0d0d1a;}
-  ::-webkit-scrollbar-thumb{background:#2a2a4a;border-radius:2px;}
-  @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-  @keyframes shimmer{0%{background-position:0% 50%}100%{background-position:200% 50%}}
-  @keyframes pulse{0%,100%{opacity:.6}50%{opacity:1}}
-  @keyframes slideUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
-  @keyframes dmgFloat{0%{opacity:1;transform:translateY(0) scale(1)}50%{opacity:1;transform:translateY(-22px) scale(1.2)}100%{opacity:0;transform:translateY(-48px) scale(.8)}}
-  @keyframes cardPlay{0%{opacity:0;transform:scale(.7) translateY(20px)}100%{opacity:1;transform:scale(1) translateY(0)}}
-  .chov:hover{transform:translateY(-10px) scale(1.05)!important;z-index:20!important;}
-  .btn:hover{filter:brightness(1.2);}
-  .btn:active{transform:scale(.96);}
+  ::-webkit-scrollbar-track{background:#080812;}
+  ::-webkit-scrollbar-thumb{background:#2a2a5a;border-radius:2px;}
+
+  @keyframes fadeIn   {from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  @keyframes shimmer  {0%{background-position:0% 50%}100%{background-position:200% 50%}}
+  @keyframes pulse    {0%,100%{opacity:.55}50%{opacity:1}}
+  @keyframes pulseGlow{0%,100%{box-shadow:0 0 8px var(--hc,#c8a800)}50%{box-shadow:0 0 22px var(--hc,#c8a800),0 0 40px var(--hc,#c8a800)44}}
+  @keyframes slideUp  {from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+  @keyframes slideRight{from{opacity:0;transform:translateX(-18px)}to{opacity:1;transform:none}}
+  @keyframes dmgFloat {0%{opacity:1;transform:translateY(0) scale(1.1)}60%{opacity:1;transform:translateY(-30px) scale(1.3)}100%{opacity:0;transform:translateY(-60px) scale(.8)}}
+  @keyframes cardPlay {0%{opacity:0;transform:scale(.6) translateY(30px) rotate(-5deg)}100%{opacity:1;transform:none}}
+  @keyframes heroActivate{0%{transform:scale(1)}30%{transform:scale(1.08)}100%{transform:scale(1)}}
+  @keyframes floatBg  {0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+  @keyframes spin     {from{transform:rotate(0)}to{transform:rotate(360deg)}}
+  @keyframes burnFlash{0%{opacity:0}20%{opacity:.6}100%{opacity:0}}
+
+  .chov:hover{transform:translateY(-12px) scale(1.06)!important;z-index:20!important;filter:drop-shadow(0 8px 16px rgba(0,0,0,.8))!important;}
+  .chov{transition:transform .18s ease,filter .18s ease!important;}
+  .btn:hover{filter:brightness(1.25);}
+  .btn:active{transform:scale(.95);}
+  .hero-glow{animation:pulseGlow 2.5s ease-in-out infinite;}
+  .attacking-card{animation:attackBounce .5s ease-in-out infinite alternate;}
+  @keyframes attackBounce{from{transform:translateX(0)}to{transform:translateX(8px)}}
 `;
+
 
 // ═══════════════════════════════════════════════════════════════════════
 // MANA SYMBOL
@@ -500,20 +513,32 @@ function ManaSymbol({sym,size=16}){
 // SPELL EFFECT TOAST
 // ═══════════════════════════════════════════════════════════════════════
 function EffectToast({toasts}){
+  const cfg={
+    damage:{bg:"linear-gradient(135deg,#3a0808,#220404)",border:"#cc3311",color:"#ff9977",icon:"💥"},
+    heal:  {bg:"linear-gradient(135deg,#083a08,#042204)",border:"#33cc55",color:"#77ff99",icon:"💚"},
+    combat:{bg:"linear-gradient(135deg,#3a2800,#221500)",border:"#cc8800",color:"#ffcc44",icon:"⚔️"},
+    system:{bg:"linear-gradient(135deg,#083030,#041e1e)",border:"#33aacc",color:"#77ccff",icon:"✨"},
+    opp:   {bg:"linear-gradient(135deg,#1a0830,#0d0418)",border:"#8833cc",color:"#cc88ff",icon:"🤖"},
+    action:{bg:"linear-gradient(135deg,#0a0a1e,#060610)",border:"#3a5a88",color:"#88aadd",icon:"🃏"},
+  };
   return(
-    <div style={{position:"fixed",top:70,right:14,zIndex:8900,display:"flex",flexDirection:"column",gap:6,pointerEvents:"none"}}>
-      {toasts.map(t=>(
-        <div key={t.id} style={{
-          background:t.type==="damage"?"#3a0808":t.type==="heal"?"#083a08":t.type==="combat"?"#3a2800":"#0a0a1a",
-          border:`1px solid ${t.type==="damage"?"#cc3311":t.type==="heal"?"#33cc55":t.type==="combat"?"#cc8800":"#2a2a4a"}`,
-          borderRadius:7,padding:"7px 12px",maxWidth:280,animation:"slideUp .25s ease",
-          color:t.type==="damage"?"#ff8866":t.type==="heal"?"#66ff88":t.type==="combat"?"#ffcc44":"#aabbcc",
-          fontSize:11,fontFamily:"'Crimson Pro',serif",lineHeight:1.4,
-          boxShadow:`0 4px 20px ${t.type==="damage"?"rgba(200,50,0,.3)":t.type==="heal"?"rgba(0,200,80,.2)":"rgba(0,0,0,.5)"}`,
-        }}>
-          {t.text}
-        </div>
-      ))}
+    <div style={{position:"fixed",bottom:240,left:"50%",transform:"translateX(-50%)",zIndex:8900,display:"flex",flexDirection:"column",gap:7,alignItems:"center",pointerEvents:"none",width:340}}>
+      {toasts.map(t=>{
+        const c=cfg[t.type]||cfg.action;
+        return(
+          <div key={t.id} style={{
+            width:"100%",background:c.bg,border:`1.5px solid ${c.border}`,
+            borderRadius:10,padding:"9px 14px",
+            animation:"slideUp .22s ease",
+            color:c.color,fontSize:12,fontFamily:"'Crimson Pro',serif",lineHeight:1.5,
+            boxShadow:`0 4px 24px ${c.border}44, inset 0 1px 0 rgba(255,255,255,.05)`,
+            display:"flex",alignItems:"center",gap:10,
+          }}>
+            <span style={{fontSize:18,flexShrink:0}}>{c.icon}</span>
+            <span>{t.text}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -930,25 +955,33 @@ function HeroSelect({playerLabel,onSelect,onBack}){
 // ═══════════════════════════════════════════════════════════════════════
 // HERO BADGE (in-game)
 // ═══════════════════════════════════════════════════════════════════════
-function HeroBadge({hero,used,onActivate,label}){
+function HeroBadge({hero,used,onActivate,label,oppHero}){
   if(!hero) return null;
   return(
-    <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
-      <div style={{fontSize:8,color:"#444",letterSpacing:2,textTransform:"uppercase"}}>{label}</div>
-      <div style={{display:"flex",alignItems:"center",gap:5,padding:"3px 8px",borderRadius:6,background:`${hero.color}11`,border:`1px solid ${hero.color}33`}}>
-        <span style={{fontSize:16}}>{hero.icon}</span>
-        <div style={{display:"flex",flexDirection:"column"}}>
-          <span style={{fontSize:9,color:hero.color,fontFamily:"'Cinzel',serif",fontWeight:700}}>{hero.name}</span>
-          <span style={{fontSize:7,color:"#444",fontFamily:"'Crimson Pro',serif"}}>{hero.passive.slice(0,30)}…</span>
+    <div style={{display:"flex",alignItems:"center",gap:8}}>
+      {oppHero&&(
+        <div style={{display:"flex",alignItems:"center",gap:5,padding:"3px 9px",borderRadius:6,background:`${oppHero.color}0a`,border:`1px solid ${oppHero.color}22`,opacity:.65}}>
+          <span style={{fontSize:14}}>{oppHero.icon}</span>
+          <div>
+            <div style={{fontSize:8,color:oppHero.color,fontFamily:"'Cinzel',serif",fontWeight:700,letterSpacing:1}}>{oppHero.name}</div>
+            <div style={{fontSize:7,color:"#333"}}>Opponent</div>
+          </div>
+        </div>
+      )}
+      <div style={{display:"flex",alignItems:"center",gap:8,padding:"5px 12px",borderRadius:8,background:`linear-gradient(135deg,${hero.color}18,${hero.color}08)`,border:`1.5px solid ${hero.color}55`,boxShadow:`0 0 14px ${hero.color}22`}}>
+        <span style={{fontSize:20}}>{hero.icon}</span>
+        <div>
+          <div style={{fontSize:10,color:hero.color,fontFamily:"'Cinzel',serif",fontWeight:900,letterSpacing:2}}>{hero.name.toUpperCase()}</div>
+          <div style={{fontSize:7,color:"#555",maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{hero.passive}</div>
         </div>
         {onActivate&&(
           <button className="btn" onClick={onActivate} disabled={used} style={{
-            padding:"3px 8px",borderRadius:4,fontSize:8,cursor:used?"not-allowed":"pointer",
-            background:used?"#1a1a1a":`${hero.color}22`,
-            border:`1px solid ${used?"#222":hero.color}`,
-            color:used?"#333":hero.color,fontFamily:"'Cinzel',serif",
-            whiteSpace:"nowrap",
-          }}>{used?"Used":"⚡ Active"}</button>
+            padding:"5px 12px",borderRadius:6,fontSize:10,cursor:used?"not-allowed":"pointer",
+            background:used?"#111118":`linear-gradient(135deg,${hero.color}44,${hero.color}22)`,
+            border:`1.5px solid ${used?"#222":hero.color}`,
+            color:used?"#333":hero.color,fontFamily:"'Cinzel',serif",fontWeight:700,letterSpacing:1,
+            whiteSpace:"nowrap",boxShadow:used?"none":`0 0 10px ${hero.color}44`,transition:"all .2s",
+          }}>{used?`${hero.icon} Used`:`${hero.icon} Active`}</button>
         )}
       </div>
     </div>
@@ -1369,108 +1402,242 @@ function GameView({initGs,deck,onMenu,hero,oppHero,is2P,p2deck}){
   const phIdx=PHASES.indexOf(phase);
 
   return(
-    <div style={{height:"100vh",display:"flex",flexDirection:"column",background:"#04040c",overflow:"hidden",position:"relative"}}>
-      {/* TOP BAR */}
-      <div style={{padding:"6px 12px",display:"flex",alignItems:"center",gap:7,borderBottom:"1px solid #0a0a15",background:"#050510",flexShrink:0,flexWrap:"wrap"}}>
-        <button className="btn" onClick={onMenu} style={{background:"none",border:"none",color:"#2a2a3a",cursor:"pointer",fontSize:16}}>←</button>
-        <span style={{fontFamily:"'Cinzel',serif",fontSize:13,fontWeight:700,color:"#c8a800"}}>TapAndDraw</span>
-        {is2P&&<span style={{fontSize:10,padding:"2px 8px",borderRadius:4,background:currentHero?`${currentHero.color}22`:"#1a1a2a",border:`1px solid ${currentHero?.color||"#333"}44`,color:currentHero?.color||"#888",fontFamily:"'Cinzel',serif"}}>P{activePlayer} {currentHero?.icon||""}</span>}
-        <span style={{fontSize:10,color:"#1e1e2e",fontFamily:"'Cinzel',serif"}}>· T{turn}</span>
-        <div style={{display:"flex",gap:2,marginLeft:4}}>
+    <div style={{height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden",position:"relative",
+      background:`linear-gradient(180deg,
+        ${currentHero?currentHero.color+"0a":"#04040c"} 0%,
+        #04040c 30%,
+        #04040c 70%,
+        ${currentHero?currentHero.color+"06":"#04040c"} 100%)`}}>
+
+      {/* Ambient hero glow overlay */}
+      {currentHero&&<div style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:0,
+        background:`radial-gradient(ellipse at 50% 100%,${currentHero.color}08 0%,transparent 60%)`,
+        transition:"background 1s ease"}}/>}
+
+      {/* ── TOP BAR ─────────────────────────────────────────────── */}
+      <div style={{padding:"8px 14px",display:"flex",alignItems:"center",gap:8,
+        borderBottom:`1px solid ${currentHero?currentHero.color+"33":"#0d0d20"}`,
+        background:`linear-gradient(90deg,${currentHero?currentHero.color+"12":"#050510"},#060612,${oppHero?oppHero.color+"10":"#050510"})`,
+        flexShrink:0,flexWrap:"nowrap",position:"relative",zIndex:10,
+        boxShadow:`0 2px 20px rgba(0,0,0,.6)`}}>
+
+        <button className="btn" onClick={onMenu} style={{background:"none",border:"none",color:"#444",cursor:"pointer",fontSize:18,lineHeight:1}}>←</button>
+
+        {/* Brand */}
+        <span style={{fontFamily:"'Cinzel',serif",fontSize:14,fontWeight:900,
+          background:"linear-gradient(135deg,#a07800,#e8c820,#f5e060)",
+          WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",backgroundClip:"text",
+          letterSpacing:2,flexShrink:0}}>TapAndDraw</span>
+
+        {/* Turn + player badge */}
+        <div style={{display:"flex",alignItems:"center",gap:5,padding:"3px 8px",borderRadius:5,
+          background:"#0a0a18",border:"1px solid #1a1a28"}}>
+          {is2P&&<span style={{fontSize:10,color:currentHero?.color||"#888",fontFamily:"'Cinzel',serif",fontWeight:700}}>P{activePlayer}</span>}
+          <span style={{fontSize:9,color:"#445",fontFamily:"'Cinzel',serif"}}>Turn {turn}</span>
+        </div>
+
+        {/* Phase strip */}
+        <div style={{display:"flex",gap:2,flexShrink:0}}>
           {PHASES.map((p,i)=>(
-            <div key={p} style={{padding:"2px 6px",borderRadius:3,fontSize:8,fontFamily:"'Cinzel',serif",background:phase===p?"rgba(200,168,0,.12)":"transparent",border:`1px solid ${phase===p?"#c8a80066":"#0d0d18"}`,color:phase===p?"#c8a800":i<phIdx?"#1e1e2e":"#222"}}>
+            <div key={p} style={{padding:"3px 7px",borderRadius:4,fontSize:8,fontFamily:"'Cinzel',serif",
+              background:phase===p?`${currentHero?.color||"#c8a800"}18`:"transparent",
+              border:`1px solid ${phase===p?currentHero?.color||"#c8a800":"#111120"}`,
+              color:phase===p?currentHero?.color||"#c8a800":i<phIdx?"#222":"#1e1e28",
+              transition:"all .2s",
+              boxShadow:phase===p?`0 0 8px ${currentHero?.color||"#c8a800"}44`:"none"}}>
               {p}
             </div>
           ))}
         </div>
+
         <div style={{flex:1}}/>
-        {currentHero&&<HeroBadge hero={currentHero} used={heroUsed} onActivate={heroActivate} label="Hero"/>}
-        {currentHero&&<div style={{width:1,height:28,background:"#0d0d18"}}/>}
+
+        {/* Hero badge */}
+        <HeroBadge hero={currentHero} used={heroUsed} onActivate={heroActivate} label="Hero" oppHero={!is2P?oppHero:null}/>
+
+        {currentHero&&<div style={{width:1,height:30,background:"#111120",flexShrink:0}}/>}
+
+        {/* Mana pool */}
         <ManaPool pool={gs.mana} onChange={adjMana}/>
-        <div style={{width:1,height:28,background:"#0d0d18"}}/>
-        <LifeCounter life={gs.oppLife} label={is2P?`P${activePlayer===1?2:1}`:"Opponent"} color="#c05030" onChange={v=>{setGs(g=>({...g,oppLife:v}));if(v<=0)setGO("you");}}/>
-        <div style={{width:1,height:28,background:"#0d0d18"}}/>
-        <LifeCounter life={gs.life} label={is2P?`P${activePlayer}`:"You"} color="#3acc3a" onChange={v=>{setGs(g=>({...g,life:v}));if(v<=0)setGO("opp");}}/>
-        <div style={{width:1,height:28,background:"#0d0d18"}}/>
-        <button className="btn" onClick={drawCard} style={{padding:"4px 10px",borderRadius:4,background:"#0b1522",border:"1px solid #16304a",color:"#5a8aaa",fontSize:9,cursor:"pointer",fontFamily:"'Cinzel',serif"}}>Draw <span style={{color:"#2a4455"}}>{gs.library.length}</span></button>
-        <button className="btn" onClick={()=>setTokenModal(true)} style={{padding:"4px 9px",borderRadius:4,background:"#131320",border:"1px solid #222238",color:"#7a6acc",fontSize:9,cursor:"pointer",fontFamily:"'Cinzel',serif"}}>Token</button>
-        <button className="btn" onClick={nextPhase} style={{padding:"4px 11px",borderRadius:4,fontSize:9,cursor:"pointer",fontFamily:"'Cinzel',serif",background:combatMode?"linear-gradient(135deg,#4a1008,#7a1a08)":"linear-gradient(135deg,#152515,#1f451f)",border:combatMode?"1px solid #bb3311":"1px solid #306030",color:combatMode?"#ff7755":"#6aaa6a"}}>
-          {combatMode?"⚔ Resolve Combat":"Next Phase →"}
+        <div style={{width:1,height:30,background:"#111120",flexShrink:0}}/>
+
+        {/* Life counters */}
+        <LifeCounter life={gs.oppLife} label={is2P?`P${activePlayer===1?2:1}`:"Opponent"} color="#e05566"
+          onChange={v=>{setGs(g=>({...g,oppLife:v}));if(v<=0)setGO("you");}}/>
+        <div style={{width:1,height:30,background:"#111120",flexShrink:0}}/>
+        <LifeCounter life={gs.life} label={is2P?`P${activePlayer}`:"You"} color="#44dd88"
+          onChange={v=>{setGs(g=>({...g,life:v}));if(v<=0)setGO("opp");}}/>
+        <div style={{width:1,height:30,background:"#111120",flexShrink:0}}/>
+
+        {/* Action buttons */}
+        <button className="btn" onClick={drawCard} style={{padding:"6px 12px",borderRadius:6,
+          background:"linear-gradient(135deg,#0d1e30,#0a1520)",border:"1px solid #1a3a55",
+          color:"#5a8aaa",fontSize:10,cursor:"pointer",fontFamily:"'Cinzel',serif",
+          boxShadow:"0 2px 8px rgba(0,0,0,.4)"}}>
+          Draw <span style={{color:"#2a5577",marginLeft:3}}>{gs.library.length}</span>
+        </button>
+        <button className="btn" onClick={()=>setTokenModal(true)} style={{padding:"6px 12px",borderRadius:6,
+          background:"linear-gradient(135deg,#150d28,#0d0820)",border:"1px solid #2a1a45",
+          color:"#9a7acc",fontSize:10,cursor:"pointer",fontFamily:"'Cinzel',serif"}}>Token</button>
+        <button className="btn" onClick={nextPhase} style={{padding:"6px 14px",borderRadius:6,fontSize:10,
+          cursor:"pointer",fontFamily:"'Cinzel',serif",fontWeight:700,letterSpacing:1,
+          background:combatMode
+            ?"linear-gradient(135deg,#5a0a04,#8a1408)"
+            :`linear-gradient(135deg,${currentHero?currentHero.color+"33":"#1a3a1a"},${currentHero?currentHero.color+"1a":"#1a2a1a"})`,
+          border:combatMode?"1.5px solid #cc3311":`1.5px solid ${currentHero?.color||"#3acc6a"}`,
+          color:combatMode?"#ff7755":currentHero?.color||"#6add8a",
+          boxShadow:combatMode?"0 0 14px #cc331166":`0 0 8px ${currentHero?.color||"#3acc6a"}33`}}>
+          {combatMode?"⚔ Resolve":"Next Phase →"}
         </button>
       </div>
 
-      {/* BATTLEFIELD */}
-      <div style={{flex:1,margin:"5px 5px 0",borderRadius:9,overflow:"hidden",display:"flex",flexDirection:"column",position:"relative",
-        background:"radial-gradient(ellipse at 50% 100%,rgba(0,55,0,.18) 0%,transparent 55%),radial-gradient(ellipse at 50% 0%,rgba(0,0,45,.22) 0%,transparent 55%),#040410",
-        border:"1px solid #0a0a18"}}>
-        <div style={{position:"absolute",inset:0,pointerEvents:"none",backgroundImage:"linear-gradient(rgba(255,255,255,.01) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.01) 1px,transparent 1px)",backgroundSize:"54px 54px",borderRadius:8}}/>
-        <div style={{position:"absolute",left:0,right:0,top:"40%",height:1,background:"linear-gradient(90deg,transparent,rgba(255,255,255,.04),transparent)"}}/>
+      {/* ── BATTLEFIELD ─────────────────────────────────────────── */}
+      <div style={{flex:1,margin:"6px 6px 0",borderRadius:12,overflow:"hidden",display:"flex",
+        flexDirection:"column",position:"relative",
+        background:`
+          radial-gradient(ellipse at 30% 80%,${currentHero?currentHero.color+"0d":"rgba(0,60,0,.12)"} 0%,transparent 50%),
+          radial-gradient(ellipse at 70% 20%,${oppHero?oppHero.color+"0d":"rgba(0,0,60,.15)"} 0%,transparent 50%),
+          linear-gradient(180deg,#04040e 0%,#060610 50%,#04040e 100%)`,
+        border:`1px solid ${currentHero?currentHero.color+"22":"#0d0d20"}`,
+        boxShadow:`inset 0 0 60px rgba(0,0,0,.5)`}}>
 
-        {/* Opponent area */}
-        <div style={{flex:1,padding:"7px 10px",display:"flex",flexWrap:"wrap",gap:7,alignContent:"flex-start",position:"relative"}}>
-          <div style={{width:"100%",fontSize:8,color:"#1e1e2a",letterSpacing:3,textTransform:"uppercase",marginBottom:2,display:"flex",justifyContent:"space-between",fontFamily:"'Cinzel',serif"}}>
-            <span>Opponent · Battlefield ({gs.opp.battlefield.length})</span>
-            <span>Hand: {gs.opp.hand.length} · Library: {gs.opp.library.length}</span>
+        {/* Hexagonal grid texture */}
+        <div style={{position:"absolute",inset:0,pointerEvents:"none",opacity:.4,
+          backgroundImage:`
+            linear-gradient(rgba(255,255,255,.015) 1px,transparent 1px),
+            linear-gradient(90deg,rgba(255,255,255,.015) 1px,transparent 1px)`,
+          backgroundSize:"48px 48px"}}/>
+
+        {/* Center divider line */}
+        <div style={{position:"absolute",left:"5%",right:"5%",top:"42%",height:"1px",
+          background:`linear-gradient(90deg,transparent,${currentHero?currentHero.color+"44":"rgba(255,255,255,.06)"},${oppHero?oppHero.color+"44":"rgba(255,255,255,.06)"},transparent)`,pointerEvents:"none"}}/>
+        <div style={{position:"absolute",left:"50%",top:"42%",transform:"translateX(-50%) translateY(-50%)",
+          fontSize:11,color:"#1a1a28",fontFamily:"'Cinzel',serif",letterSpacing:4,pointerEvents:"none"}}>
+          ✦ BATTLEFIELD ✦
+        </div>
+
+        {/* ── OPPONENT AREA (top 40%) ── */}
+        <div style={{flex:"0 0 40%",padding:"10px 14px",display:"flex",flexWrap:"wrap",gap:8,
+          alignContent:"flex-start",position:"relative",
+          borderBottom:"1px solid rgba(255,255,255,.04)"}}>
+          <div style={{width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",
+            fontSize:9,letterSpacing:3,textTransform:"uppercase",marginBottom:4,fontFamily:"'Cinzel',serif"}}>
+            <span style={{color:oppHero?oppHero.color+"99":"#1e1e2a",display:"flex",alignItems:"center",gap:5}}>
+              {oppHero&&<span style={{fontSize:12}}>{oppHero.icon}</span>}
+              {is2P?`Player ${activePlayer===1?2:1}`:"Opponent"} · Battlefield ({gs.opp.battlefield.length})
+            </span>
+            <span style={{color:"#1a1a28"}}>Hand: {gs.opp.hand.length} · Library: {gs.opp.library.length}</span>
           </div>
           {gs.opp.battlefield.map(inst=>(
-            <div key={inst.uid} onMouseEnter={e=>setTt({card:inst.card,x:e.clientX,y:e.clientY})} onMouseMove={e=>setTt(t=>({...t,x:e.clientX,y:e.clientY}))} onMouseLeave={()=>setTt({card:null,x:0,y:0})}>
+            <div key={inst.uid}
+              onMouseEnter={e=>setTt({card:inst.card,x:e.clientX,y:e.clientY})}
+              onMouseMove={e=>setTt(t=>({...t,x:e.clientX,y:e.clientY}))}
+              onMouseLeave={()=>setTt({card:null,x:0,y:0})}>
               <MTGCard card={inst.card} size="tiny" tapped={inst.tapped} attacking={inst.attacking}/>
             </div>
           ))}
-          <div style={{position:"absolute",top:6,right:8,display:"flex",gap:2}}>
-            {gs.opp.hand.map((_,i)=><div key={i} style={{width:32,height:44,borderRadius:3,background:"linear-gradient(135deg,#181830,#0d0d20)",border:"1px solid #1a1a2a"}}/>)}
+          {/* Face-down hand */}
+          <div style={{position:"absolute",top:8,right:12,display:"flex",gap:3}}>
+            {gs.opp.hand.map((_,i)=>(
+              <div key={i} style={{width:30,height:42,borderRadius:4,
+                background:`linear-gradient(135deg,${oppHero?oppHero.color+"22":"#181830"},#0d0d20)`,
+                border:`1px solid ${oppHero?oppHero.color+"33":"#1a1a2a"}`,
+                boxShadow:"0 2px 6px rgba(0,0,0,.4)"}}/>
+            ))}
           </div>
         </div>
 
-        {/* Player area */}
-        <div style={{flex:2,padding:"7px 10px",borderTop:"1px solid rgba(255,255,255,.03)",position:"relative",minHeight:150}}
+        {/* ── PLAYER AREA (bottom 60%) ── */}
+        <div style={{flex:"0 0 60%",padding:"10px 14px",position:"relative",overflow:"hidden"}}
           onDragOver={e=>e.preventDefault()} onDrop={handleDrop}>
-          <div style={{fontSize:8,color:"#252528",letterSpacing:3,textTransform:"uppercase",marginBottom:4,fontFamily:"'Cinzel',serif",display:"flex",gap:8}}>
-            <span>Your Battlefield ({gs.battlefield.length})</span>
-            {combatMode&&<span style={{color:"#cc4411"}}>⚔ Click creatures to declare attackers</span>}
+          <div style={{fontSize:9,letterSpacing:3,textTransform:"uppercase",marginBottom:6,
+            fontFamily:"'Cinzel',serif",display:"flex",alignItems:"center",gap:10}}>
+            <span style={{color:currentHero?currentHero.color+"99":"#252528",display:"flex",alignItems:"center",gap:5}}>
+              {currentHero&&<span style={{fontSize:12}}>{currentHero.icon}</span>}
+              {is2P?`Player ${activePlayer}`:"Your"} Battlefield ({gs.battlefield.length})
+            </span>
+            {combatMode&&(
+              <span style={{color:"#ff6622",fontSize:9,padding:"2px 8px",borderRadius:4,
+                background:"#ff662211",border:"1px solid #ff662244",animation:"pulse 1s ease-in-out infinite"}}>
+                ⚔ Click creatures to attack
+              </span>
+            )}
+            {!combatMode&&gs.battlefield.length===0&&(
+              <span style={{color:"#1a1a25",fontSize:9}}>Drop cards here or click from hand</span>
+            )}
           </div>
-          <div style={{display:"flex",flexWrap:"wrap",gap:7,alignContent:"flex-start"}}>
+          <div style={{display:"flex",flexWrap:"wrap",gap:8,alignContent:"flex-start"}}>
             {gs.battlefield.map(inst=>(
-              <div key={inst.uid} onMouseEnter={e=>setTt({card:inst.card,x:e.clientX,y:e.clientY})} onMouseMove={e=>setTt(t=>({...t,x:e.clientX,y:e.clientY}))} onMouseLeave={()=>setTt({card:null,x:0,y:0})}>
-                <MTGCard card={inst.card} size="small" tapped={inst.tapped} selected={inst.selected} attacking={inst.attacking} summoningSick={inst.summoningSick} counters={inst.counters}
+              <div key={inst.uid}
+                onMouseEnter={e=>setTt({card:inst.card,x:e.clientX,y:e.clientY})}
+                onMouseMove={e=>setTt(t=>({...t,x:e.clientX,y:e.clientY}))}
+                onMouseLeave={()=>setTt({card:null,x:0,y:0})}>
+                <MTGCard card={inst.card} size="small"
+                  tapped={inst.tapped} selected={inst.selected}
+                  attacking={inst.attacking} summoningSick={inst.summoningSick}
+                  counters={inst.counters}
                   onClick={()=>handleCardAct("tap",inst)}
-                  onContextMenu={e=>{e.preventDefault();handleCardAct("ctx",inst,e);}}
-                />
+                  onContextMenu={e=>{e.preventDefault();handleCardAct("ctx",inst,e);}}/>
               </div>
             ))}
-            {gs.battlefield.length===0&&<div style={{width:"100%",textAlign:"center",color:"#111116",fontSize:11,paddingTop:36,fontFamily:"'Cinzel',serif",letterSpacing:4}}>DRAG CARDS HERE · CLICK TO TAP · RIGHT-CLICK FOR OPTIONS</div>}
           </div>
+
           {/* Zone pills */}
-          <div style={{position:"absolute",right:8,bottom:8,display:"flex",gap:5}}>
-            {[{z:"graveyard",l:"GY",col:"#7a3a3a"},{z:"exile",l:"EX",col:"#6a3a8a"}].map(zp=>(
-              <div key={zp.z} onClick={()=>setZoneModal(zp.z)} style={{width:38,height:50,borderRadius:4,border:`1px solid ${zp.col}33`,background:`${zp.col}0e`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:1,cursor:"pointer"}}>
-                <span style={{fontSize:7,color:zp.col,letterSpacing:1}}>{zp.l}</span>
-                <span style={{fontSize:13,color:zp.col,fontWeight:700}}>{gs[zp.z].length}</span>
+          <div style={{position:"absolute",right:10,bottom:8,display:"flex",gap:6}}>
+            {[{z:"graveyard",l:"GY",col:"#aa4444",icon:"💀"},{z:"exile",l:"EX",col:"#8844aa",icon:"🌀"}].map(zp=>(
+              <div key={zp.z} onClick={()=>setZoneModal(zp.z)} style={{
+                width:46,height:58,borderRadius:8,cursor:"pointer",
+                border:`1px solid ${zp.col}44`,
+                background:`linear-gradient(160deg,${zp.col}18,${zp.col}08)`,
+                display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:2,
+                transition:"all .15s",boxShadow:"0 2px 8px rgba(0,0,0,.4)"}}
+                onMouseOver={e=>{e.currentTarget.style.borderColor=zp.col+"88";e.currentTarget.style.boxShadow=`0 0 12px ${zp.col}44`;}}
+                onMouseOut={e=>{e.currentTarget.style.borderColor=zp.col+"44";e.currentTarget.style.boxShadow="0 2px 8px rgba(0,0,0,.4)";}}>
+                <span style={{fontSize:14}}>{zp.icon}</span>
+                <span style={{fontSize:8,color:zp.col,letterSpacing:1,fontFamily:"'Cinzel',serif"}}>{zp.l}</span>
+                <span style={{fontSize:14,color:zp.col,fontWeight:900,fontFamily:"'Cinzel',serif"}}>{gs[zp.z].length}</span>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      {/* HAND */}
-      <div style={{height:145,background:"#030309",borderTop:"1px solid #0a0a14",display:"flex",alignItems:"flex-end",padding:"0 10px 9px",gap:5,overflowX:"auto",flexShrink:0,position:"relative"}}>
-        <div style={{position:"absolute",top:5,left:10,fontSize:7,color:"#1a1a22",letterSpacing:3,textTransform:"uppercase",fontFamily:"'Cinzel',serif"}}>Hand · {gs.hand.length}</div>
+      {/* ── HAND ─────────────────────────────────────────────────── */}
+      <div style={{height:155,
+        background:`linear-gradient(180deg,#030309,${currentHero?currentHero.color+"08":"#040410"})`,
+        borderTop:`1px solid ${currentHero?currentHero.color+"22":"#0d0d18"}`,
+        display:"flex",alignItems:"flex-end",padding:"0 14px 12px",gap:7,
+        overflowX:"auto",flexShrink:0,position:"relative",zIndex:5}}>
+        <div style={{position:"absolute",top:7,left:14,fontSize:8,color:"#1e1e28",
+          letterSpacing:3,textTransform:"uppercase",fontFamily:"'Cinzel',serif",
+          display:"flex",alignItems:"center",gap:6}}>
+          {currentHero&&<span style={{color:currentHero.color+"55"}}>{currentHero.icon}</span>}
+          Hand · {gs.hand.length} cards
+        </div>
         {gs.hand.map(inst=>(
           <HandCard key={inst.uid} inst={inst} onPlay={playCard} onDiscard={discardCard} onHover={setTt}/>
         ))}
-        {gs.hand.length===0&&<div style={{flex:1,textAlign:"center",color:"#111116",paddingBottom:24,fontFamily:"'Cinzel',serif",fontSize:10,letterSpacing:3,alignSelf:"center"}}>NO CARDS IN HAND</div>}
+        {gs.hand.length===0&&(
+          <div style={{flex:1,textAlign:"center",color:"#111118",paddingBottom:28,
+            fontFamily:"'Cinzel',serif",fontSize:11,letterSpacing:4,alignSelf:"center"}}>
+            NO CARDS IN HAND · PRESS DRAW
+          </div>
+        )}
       </div>
 
-      {/* LOG */}
+      {/* ── LOG ──────────────────────────────────────────────────── */}
       <Log entries={log}/>
 
-      {/* GLOBALS */}
+      {/* ── GLOBALS ──────────────────────────────────────────────── */}
       {tt.card&&<CardTooltip card={tt.card} x={tt.x} y={tt.y}/>}
       <DmgFloat events={dmgEvt}/>
       <EffectToast toasts={toasts}/>
       {ctx&&<CtxMenu x={ctx.x} y={ctx.y} options={ctx.options} onClose={()=>setCtx(null)}/>}
       {zoneModal&&<ZoneModal zoneName={zoneModal} cards={gs[zoneModal]||[]} onClose={()=>setZoneModal(null)}
-        onReturn={zoneModal==="graveyard"?inst=>{setGs(g=>({...g,graveyard:g.graveyard.filter(c=>c.uid!==inst.uid),hand:[...g.hand,inst]}));addLog(`GY → Hand: ${inst.card.name}`);setZoneModal(null);}:null}/>}
+        onReturn={zoneModal==="graveyard"?inst=>{
+          setGs(g=>({...g,graveyard:g.graveyard.filter(c=>c.uid!==inst.uid),hand:[...g.hand,inst]}));
+          addLog(`GY → Hand: ${inst.card.name}`);setZoneModal(null);
+        }:null}/>}
       {tokenModal&&<TokenModal onCreate={createToken} onClose={()=>setTokenModal(false)}/>}
       {gameOver&&<GameOver winner={gameOver} onRestart={restart} onMenu={onMenu}/>}
       {showPass&&<PassScreen
